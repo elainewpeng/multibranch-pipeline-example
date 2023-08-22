@@ -25,8 +25,8 @@ pipeline {
         IS_RELEASE_BRANCH = "${BRANCH_NAME in ['release']}".toBoolean()
 
         //Variables used by stages
-        RUN_RELEASE = "${IS_RELEASE_BRANCH  && !IS_RELEASE_TRIGGER}".toBoolean()
-        SKIP_BUILD = "${RUN_RELEASE}".toBoolean()
+        RUN_RELEASE = "${IS_RELEASE_BRANCH  && IS_RELEASE_TRIGGER}".toBoolean()
+        SKIP_BUILD = "${RUN_RELEASE || TRIGGER_BY_INDEX}".toBoolean()
 
         RUN_DEPLOY_ONLY =  "${IS_DEPLOY_BRANCH  && IS_DEPLOY_TRIGGER}".toBoolean()
         DEPLOY_TARGET_ENV = "${RUN_RELEASE ? 'staging' : (IS_DEPLOY_BRANCH ? 'mvp':'dev')}"
