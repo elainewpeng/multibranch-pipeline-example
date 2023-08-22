@@ -18,16 +18,16 @@ pipeline {
         MAVEN_REPO_RELEASE = "file://${HOME}/maven-repo/releases"
         MAVEN_REPO_SNAPSHOT = "file://${HOME}/maven-repo/snapshots"
 
-        IS_BUILD_BY_USER = is_build_cause('UserIdCause')
-        IS_BUILD_BY_TIMER = is_build_cause('TimerTriggerCause')
-        IS_RELEASE_TRIGGER = "${env.IS_BUILD_BY_USER || IS_BUILD_BY_TIMER}"
-        
-        RUN_RELEASE = "${(env.BRANCH_NAME == 'release') && (IS_RELEASE_TRIGGER == 'true')}"
-        RUN_BUILD_FOR_DEPLOY_ONLY = "${}"
-        //FixME
-        RUN_DEPLOY = "${(env.BRANCH_NAME == 'release') && (IS_RELEASE_TRIGGER == 'true')}"
-        DEPLOY_DESC = "Deploy ${DEPLOY_TARGET_ENV}"
+        TRIGGER_BY_USER = is_build_cause('UserIdCause')
+        TRIGGER_BY_TIMER = is_build_cause('TimerTriggerCause')
+        TRIGGER_BY_COMMIT = is_build_cause('BranchEventCause')
 
+        IS_RELEASE_TRIGGER = "${(env.TRIGGER_BY_USER || TRIGGER_BY_TIMER) &&  !TRIGGER_BY_COMMIT}"
+
+        RUN_RELEASE = "${(env.BRANCH_NAME == 'release') && (IS_RELEASE_TRIGGER == 'true')}"
+        RUN_BUILD_FOR_DEPLOY_ONLY = "${env.BRANCH_NAME == 'deploy'}"
+
+        DEPLOY_DESC = "Deploy ${DEPLOY_TARGET_ENV}"
         DEPLOY_TARGET_ENV = "${env.RUN_RELEASE ? 'staging' : params.DEPLOY_ENV}"
      }
     stages {
@@ -45,13 +45,13 @@ pipeline {
         stage('Release') {
             when { environment name: 'RUN_RELEASE', value: "true" }
             steps {
-                echo 'Run release'
+                echo 'Running release'
             }
         }
         stage('Deploy') {
             when { environment name: 'RUN_DEPLOY', value: "true" }
             steps {
-                echo "Deploy to ${DEPLOY_TARGET_ENV}"
+                echo "Running Deploy to ${DEPLOY_TARGET_ENV}"
             }
         }
     }
