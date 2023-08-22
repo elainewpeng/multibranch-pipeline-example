@@ -28,6 +28,7 @@ pipeline {
         RUN_RELEASE = "${IS_RELEASE_BRANCH  && IS_RELEASE_TRIGGER}".toBoolean()
         SKIP_BUILD = "${RUN_RELEASE || TRIGGER_BY_INDEX}".toBoolean()
 
+        RUN_DEPLOY = "${IS_DEPLOY_TRIGGER}".toBoolean()
         RUN_DEPLOY_ONLY =  "${IS_DEPLOY_BRANCH  && IS_DEPLOY_TRIGGER}".toBoolean()
         DEPLOY_TARGET_ENV = "${RUN_RELEASE ? 'staging' : (IS_DEPLOY_BRANCH ? 'mvp':'dev')}"
      }
@@ -40,7 +41,7 @@ pipeline {
         stage('Checkout Deploy Version') {
             when { environment name: 'RUN_DEPLOY_ONLY', value: "true" }
             steps {
-                echo "Checkout Deploy Version"
+                echo "Checkout Version For Deploy"
             }
         }
         stage('Build') {
@@ -56,7 +57,7 @@ pipeline {
             }
         }
         stage('Deploy') {
-            when { environment name: 'IS_DEPLOY_TRIGGER', value: "true" }
+            when { environment name: 'RUN_DEPLOY', value: "true" }
             steps {
                 echo "Deploying to ${DEPLOY_TARGET_ENV}"
             }
