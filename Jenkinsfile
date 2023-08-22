@@ -21,15 +21,16 @@ pipeline {
         TRIGGER_BY_USER = is_build_cause('UserIdCause')
         TRIGGER_BY_TIMER = is_build_cause('TimerTriggerCause')
         TRIGGER_BY_COMMIT = is_build_cause('BranchEventCause')
+        TRIGGER_BY_INDEX = is_build_cause('BranchIndexingCause')
 
-        IS_RELEASE_TRIGGER = "${(env.TRIGGER_BY_USER || TRIGGER_BY_TIMER) &&  !TRIGGER_BY_COMMIT}"
+        IS_RELEASE_TRIGGER = "${(env.TRIGGER_BY_USER || TRIGGER_BY_TIMER) &&  !TRIGGER_BY_COMMIT && !TRIGGER_BY_INDEX}"
 
         RUN_RELEASE = "${(env.BRANCH_NAME == 'release') && (IS_RELEASE_TRIGGER == 'true')}"
         RUN_BUILD_FOR_DEPLOY_ONLY = "${env.BRANCH_NAME == 'deploy'}"
 
         DEPLOY_DESC = "Deploy ${DEPLOY_TARGET_ENV}"
         DEPLOY_TARGET_ENV = "${env.RUN_RELEASE ? 'staging' : (env.BRANCH_NAME == 'master' ? 'dev':env.params.DEPLOY_ENV)}"
-        RUN_DEPLOY =  "${!env.DEPLOY_TARGET_ENV.isEmpty()}"
+        RUN_DEPLOY =  "${env.TRIGGER_BY_USER && !env.DEPLOY_TARGET_ENV.isEmpty()}"
      }
     stages {
         stage('Debug') {
