@@ -60,6 +60,7 @@ pipeline {
 
 def is_build_cause(String cause_name) {
     for(cause in currentBuild.getBuildCauses()) {
+        print(cause['_class'])
         if (cause['_class'].contains(cause_name)) {
             return true
         }
