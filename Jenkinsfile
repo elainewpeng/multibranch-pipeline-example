@@ -29,7 +29,7 @@ pipeline {
 
         DEPLOY_DESC = "Deploy ${DEPLOY_TARGET_ENV}"
         DEPLOY_TARGET_ENV = "${env.RUN_RELEASE ? 'staging' : (env.BRANCH_NAME == 'master' ? 'dev':env.params.DEPLOY_ENV)}"
-        RUN_DEPLOY =  "${!params.DEPLOY_TARGET_ENV.isEmpty()}"
+        RUN_DEPLOY =  "${!env.DEPLOY_TARGET_ENV.isEmpty()}"
      }
     stages {
         stage('Debug') {
