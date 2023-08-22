@@ -5,14 +5,8 @@ pipeline {
     }
     parameters {
          string(name: 'DEPLOY_VERSION', defaultValue: '', description: 'Version to deploy')
-         choice(
-            choices: ["", "dev","staging", "mvp"],
-            description: 'Select environment to deploy',
-            name: 'DEPLOY_ENV'
-         )
     }
     environment {
-        DEV_BRANCH_PATTERN = "^dev-.*"
         GIT_ACCESS_TOKEN = credentials("GIT_ACCESS_TOKEN")
         GIT_URL = "https://${GIT_ACCESS_TOKEN}@github.com/elainewpeng/multibranch-pipeline-example.git"
         MAVEN_REPO_RELEASE = "file://${HOME}/maven-repo/releases"
@@ -23,14 +17,19 @@ pipeline {
         TRIGGER_BY_COMMIT = is_build_cause('BranchEventCause')
         TRIGGER_BY_INDEX = is_build_cause('BranchIndexingCause')
 
-        IS_RELEASE_TRIGGER = "${(env.TRIGGER_BY_USER || TRIGGER_BY_TIMER) &&  !TRIGGER_BY_COMMIT && !TRIGGER_BY_INDEX}"
+        IS_SCM_BRANCH_TRIGGER = "${TRIGGER_BY_COMMIT || TRIGGER_BY_INDEX}".toBoolean()
+        IS_RELEASE_TRIGGER = "${(TRIGGER_BY_USER || TRIGGER_BY_TIMER) &&  !IS_SCM_BRANCH_TRIGGER}".toBoolean()
+        IS_DEPLOY_TRIGGER = "${TRIGGER_BY_USER  &&  !IS_SCM_BRANCH_TRIGGER}".toBoolean()
 
-        RUN_RELEASE = "${(env.BRANCH_NAME == 'release') && (IS_RELEASE_TRIGGER == 'true')}"
-        RUN_BUILD_FOR_DEPLOY_ONLY = "${env.BRANCH_NAME == 'deploy'}"
+        IS_DEPLOY_BRANCH = "${BRANCH_NAME in ['deploy_mvp']}".toBoolean()
+        IS_RELEASE_BRANCH = "${BRANCH_NAME in ['release']}".toBoolean()
 
-        DEPLOY_DESC = "Deploy ${DEPLOY_TARGET_ENV}"
-        DEPLOY_TARGET_ENV = "${env.RUN_RELEASE ? 'staging' : (env.BRANCH_NAME == 'master' ? 'dev':env.params.DEPLOY_ENV)}"
-        RUN_DEPLOY =  "${env.TRIGGER_BY_USER && !env.DEPLOY_TARGET_ENV.isEmpty()}"
+        //Variables used by stages
+        RUN_RELEASE = "${IS_RELEASE_BRANCH  && !IS_RELEASE_TRIGGER}".toBoolean()
+        SKIP_BUILD = "${RUN_RELEASE}".toBoolean()
+
+        RUN_DEPLOY_ONLY =  "${IS_DEPLOY_BRANCH  && IS_DEPLOY_TRIGGER}".toBoolean()
+        DEPLOY_TARGET_ENV = "${RUN_RELEASE ? 'staging' : (IS_DEPLOY_BRANCH ? 'mvp':'dev')}"
      }
     stages {
         stage('Debug') {
@@ -38,10 +37,16 @@ pipeline {
                 sh 'printenv'
             }
         }
-        stage('Build version for deploy') {
-            when { environment name: 'RUN_BUILD_FOR_DEPLOY_ONLY', value: "true" }
+        stage('Checkout Deploy Version') {
+            when { environment name: 'RUN_DEPLOY_ONLY', value: "true" }
             steps {
-                echo "Checkout and build version for deploy"
+                echo "Checkout Deploy Version"
+            }
+        }
+        stage('Build') {
+            when { environment name: 'SKIP_BUILD', value: "false" }
+            steps {
+                echo "Build"
             }
         }
         stage('Release') {
@@ -51,9 +56,9 @@ pipeline {
             }
         }
         stage('Deploy') {
-            when { environment name: 'RUN_DEPLOY', value: "true" }
+            when { environment name: 'IS_DEPLOY_TRIGGER', value: "true" }
             steps {
-                echo "Running Deploy to ${DEPLOY_TARGET_ENV}"
+                echo "Deploying to ${DEPLOY_TARGET_ENV}"
             }
         }
     }
