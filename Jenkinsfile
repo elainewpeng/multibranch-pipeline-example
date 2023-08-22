@@ -6,7 +6,7 @@ pipeline {
     parameters {
          string(name: 'DEPLOY_VERSION', defaultValue: '', description: 'Version to deploy')
          choice(
-            choices: ["dev","staging", "mvp"],
+            choices: ["", "dev","staging", "mvp"],
             description: 'Select environment to deploy',
             name: 'DEPLOY_ENV'
          )
@@ -28,7 +28,8 @@ pipeline {
         RUN_BUILD_FOR_DEPLOY_ONLY = "${env.BRANCH_NAME == 'deploy'}"
 
         DEPLOY_DESC = "Deploy ${DEPLOY_TARGET_ENV}"
-        DEPLOY_TARGET_ENV = "${env.RUN_RELEASE ? 'staging' : params.DEPLOY_ENV}"
+        DEPLOY_TARGET_ENV = "${env.RUN_RELEASE ? 'staging' : (env.BRANCH_NAME == 'master' ? 'dev':env.params.DEPLOY_ENV)}"
+        RUN_DEPLOY =  "${!params.DEPLOY_TARGET_ENV.isEmpty()}"
      }
     stages {
         stage('Debug') {
