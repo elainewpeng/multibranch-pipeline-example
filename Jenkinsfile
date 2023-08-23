@@ -8,7 +8,7 @@ pipeline {
     }
     environment {
         GIT_ACCESS_TOKEN = credentials("GIT_ACCESS_TOKEN")
-        GIT_URL = "https://${GIT_ACCESS_TOKEN}@github.com/elainewpeng/multibranch-pipeline-example.git"
+        MARS_GIT_URL = "https://${GIT_ACCESS_TOKEN}@github.com/elainewpeng/multibranch-pipeline-example.git"
         MAVEN_REPO_RELEASE = "file://${HOME}/maven-repo/releases"
         MAVEN_REPO_SNAPSHOT = "file://${HOME}/maven-repo/snapshots"
 
@@ -32,46 +32,65 @@ pipeline {
         RUN_DEPLOY_ONLY =  "${IS_DEPLOY_BRANCH  && IS_DEPLOY_TRIGGER}".toBoolean()
         DEPLOY_TARGET_ENV = "${RUN_RELEASE ? 'staging' : (IS_DEPLOY_BRANCH ? 'mvp':'dev')}"
      }
-    stages {
-        stage('Debug') {
-            steps {
-                sh 'printenv'
-            }
-        }
-        stage('Checkout Deploy Version') {
-            when { environment name: 'RUN_DEPLOY_ONLY', value: "true" }
-            steps {
-                echo "Checkout Version For Deploy"
-            }
-        }
-        stage('Build') {
-            when { environment name: 'SKIP_BUILD', value: "false" }
-            steps {
-                echo "Build"
-            }
-        }
-        stage('Release') {
-            when { environment name: 'RUN_RELEASE', value: "true" }
-            steps {
-                echo 'Running release'
-            }
-        }
-        stage('Deploy') {
-            when { environment name: 'RUN_DEPLOY', value: "true" }
-            steps {
-                echo "Deploying to ${DEPLOY_TARGET_ENV}"
-            }
-        }
-    }
-}
-
-def is_build_cause(String cause_name) {
-    for(cause in currentBuild.getBuildCauses()) {
-        print(cause['_class'])
-        if (cause['_class'].contains(cause_name)) {
-            return true
-        }
-    }
-    return false
-}
-
+   stages {
+           stage('Debug') {
+               steps {
+                   sh 'printenv'
+               }
+           }
+           stage('Checkout Deploy Version') {
+               when { environment name: 'RUN_DEPLOY_ONLY', value: "true" }
+               steps {
+                   checkout([$class: 'GitSCM',
+                      branches: [[name: 'refs/remotes/origin/master']],
+                      extensions: [[$class: 'LocalBranch', localBranch: "master"]],
+                      userRemoteConfigs: [[
+                          url: MARS_GIT_URL
+                      ]]
+                   ])
+                   //sh './repo-scripts/git-checkout-release-tag.sh'
+               }
+           }
+           stage('Build') {
+               when { environment name: 'SKIP_BUILD', value: "false" }
+               steps {
+                   echo 'mvn package'
+                   //archiveArtifacts artifacts: 'lambda/target/com.foursquare.mars.lambda-*.zip'
+               }
+           }
+           stage('Release') {
+               when { environment name: 'RUN_RELEASE', value: "true" }
+               steps {
+                       checkout([$class: 'GitSCM',
+                                  branches: [[name: 'refs/remotes/origin/master']],
+                                  extensions: [[$class: 'LocalBranch', localBranch: "master"]],
+                                  userRemoteConfigs: [[
+                                      url: MARS_GIT_URL
+                                  ]]
+                              ])
+                       //sh './repo-scripts/git-sync.sh'
+                       //sh './repo-scripts/release.sh'
+               }
+           }
+           stage('Deploy') {
+               when { environment name: 'RUN_DEPLOY', value: "true" }
+               steps {
+                   dir("jenkins") {
+                       script {
+                         LAMBDA_PATH=sh(script:'find . -print | grep -e "test.sh$" ', returnStdout:true).trim()
+                       }
+                       echo "Deploying lambda ${LAMBDA_PATH} to ${DEPLOY_TARGET_ENV}"
+                   }
+               }
+           }
+       }
+   }
+   def is_build_cause(String cause_name) {
+       for(cause in currentBuild.getBuildCauses()) {
+           print(cause['_class'])
+           if (cause['_class'].contains(cause_name)) {
+               return true
+           }
+       }
+       return false
+   }
